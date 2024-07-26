@@ -5,7 +5,7 @@ The aim is to utilize docker and several libs such as gradio or streamlit to mak
 ## Description
 
 Docker is still not working for now, but all dependencies are in the requirements.txt file.
-After that is done simply  run either the `app.py` or `main.py` file to start. `main.py` is just a simple script that runs and support both single image and batch upload. `app.py` is a simple gradio app that only supports single image upload.  
+After that is done simply  run either the `app_X.py` or `main.py` file to start. `main.py` is just a simple script that runs and support both single image and batch upload. `app_X.py` are a set of simple gradio / streamlit / etc apps. Gradio only supports single image inference, while streamlit will support batch upload.
 
 ## Weights
 
