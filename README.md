@@ -14,3 +14,4 @@ As of now, the weights are not included in the repo, as we are still writing a p
 ## Showcase
 
 ![image](images/gradio.png)	
+![image](images/streamlit.png)	
