@@ -7,6 +7,7 @@ import streamlit as st
 from tkinter import Tk, filedialog
 from PIL import Image
 from ultralytics import YOLO
+from tqdm import tqdm
 
 # name random name for temp folder
 def get_random_string(length):
@@ -47,36 +48,70 @@ def image_selector(_queue):
     file = filedialog.askopenfilename(multiple=False)
     _queue.put(file)
 
-#@st.cache_data
-def folder_selector(_queue):
+def select_folder():
     root = Tk()
-    root.withdraw()
-    root.call('wm', 'attributes', '.', '-topmost', True)
-    folder = filedialog.askdirectory()
-    _queue.put(folder)
+    root.withdraw()  
+    root.attributes('-topmost', True) 
+    
+    folder_path = filedialog.askdirectory()
+    
+    if folder_path:
+        # Ensure we have the full path
+        full_path = os.path.abspath(folder_path)
+        st.session_state['selected_folder'] = full_path
+        return full_path
+    else:
+        return None
 
-def run_detection(input_path, output_path, model, file_format, checkpoint_name="best.pt",  tmp_dir=".tmp"):
+def run_detection(input_path, output_path, file_upload, file_format, checkpoint_name="best.pt",  tmp_dir=".tmp"):
 
     model = YOLO(checkpoint_name)
 
-    img_id = input_path.split(os.sep)[-1].split(file_format)[0]
+    if file_upload == "single":
 
-    img = Image.open(input_path)
+        img_id = input_path.split(os.sep)[-1].split(file_format)[0]
 
-    output_images = []
+        img = Image.open(input_path)
+
+        output_images = []
+        
+        predictions = model.predict(img, stream=False, imgsz=[1920,1080])
+
+        topb = predictions[0].boxes[0]
+        botb = predictions[0].boxes[1]
+
+        for side, box in zip(["left", "right"], [topb, botb]):
+            x, y, w, h = box.xywhn.cpu().numpy()[0].astype(float)
+            # padding of 15 pixels
+            x, y, w, h = int(x*1280), int(y*960), (int(w*1280))//2, (int(h*960))//2
+            cropped = img.crop((x-w, y-h, x+w, y+h))
+            cropped.save(os.path.join(output_path, img_id+"_"+side+file_format))
+            output_images.append(cropped)
+
+        return output_images
     
-    predictions = model.predict(img, stream=False, imgsz=[1920,1080])
+    elif file_upload == "batch":
 
-    topb = predictions[0].boxes[0]
-    botb = predictions[0].boxes[1]
+        images = os.listdir(input_path)
 
-    for side, box in zip(["left", "right"], [topb, botb]):
-        x, y, w, h = box.xywhn.cpu().numpy()[0].astype(float)
-        # padding of 15 pixels
-        x, y, w, h = int(x*1280), int(y*960), (int(w*1280))//2, (int(h*960))//2
-        cropped = img.crop((x-w, y-h, x+w, y+h))
-        cropped.save(os.path.join(output_path, img_id+"_"+side+file_format))
-        output_images.append(cropped)
+        with tqdm(total=len(images)) as pbar:
+            for i, image in enumerate(images):
+                img_id = image.split(os.sep)[-1].split(file_format)[0]
+                pbar.set_description("Predicting {}".format(img_id))
+                print(f'Processing image {i+1}/{len(images)}')
+                img = Image.open(image)
 
-    return output_images
+                predictions = model.predict(img, stream=False, imgsz=[1920,1080])
+
+                topb = predictions[0].boxes[0]
+                botb = predictions[0].boxes[1]
+
+                for side, box in zip(["left", "right"], [topb, botb]):
+                    x, y, w, h = box.xywhn.cpu().numpy()[0].astype(float)
+                    # padding of 15 pixels
+                    x, y, w, h = int(x*1280), int(y*960), (int(w*1280))//2, (int(h*960))//2
+                    cropped = img.crop((x-w, y-h, x+w, y+h))
+                    cropped.save(os.path.join(output_path, img_id+"_"+side+file_format))
+        
+        return None
 
